@@ -1,0 +1,225 @@
+@import "tailwindcss";
+
+/* ─── DESIGN TOKENS ──────────────────────────────────────────────────────── */
+:root {
+  --tv-bg:        #05050a;
+  --tv-surface:   #0d0d16;
+  --tv-surface-2: #12121f;
+  --tv-border:    rgba(255, 255, 255, 0.07);
+  --tv-border-hover: rgba(255, 255, 255, 0.14);
+  --tv-accent:    #6366f1;
+  --tv-accent-2:  #a855f7;
+  --tv-glow:      rgba(99, 102, 241, 0.35);
+  --tv-text-1:    #f1f5f9;
+  --tv-text-2:    #94a3b8;
+  --tv-text-3:    #475569;
+  --tv-radius-sm: 0.75rem;
+  --tv-radius-md: 1rem;
+  --tv-radius-lg: 1.5rem;
+  --tv-radius-xl: 2rem;
+  --tv-ease:      cubic-bezier(0.22, 1, 0.36, 1);
+  --tv-duration:  0.3s;
+}
+
+/* ─── GLOBAL RESET ───────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+html, body, #root {
+  min-height: 100%;
+  width: 100%;
+  background-color: var(--tv-bg);
+  color: var(--tv-text-1);
+}
+
+/* ─── SCROLLBAR ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.3);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.6); }
+
+/* ─── TYPOGRAPHY ─────────────────────────────────────────────────────────── */
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* ─── UTILITY: NO SELECT ON UI CHROME ────────────────────────────────────── */
+button, nav, header, label {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ─── UTILITY: GRADIENT TEXT ─────────────────────────────────────────────── */
+.tv-gradient-text {
+  background: linear-gradient(135deg, #818cf8 0%, #a78bfa 50%, #f472b6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* ─── UTILITY: GLASS CARD ────────────────────────────────────────────────── */
+.tv-card {
+  background: var(--tv-surface);
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-lg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: border-color var(--tv-duration) var(--tv-ease),
+              box-shadow var(--tv-duration) var(--tv-ease);
+}
+.tv-card:hover {
+  border-color: var(--tv-border-hover);
+  box-shadow: 0 0 0 1px var(--tv-border-hover),
+              0 20px 60px -12px rgba(0, 0, 0, 0.6);
+}
+
+/* ─── UTILITY: PRIMARY BUTTON ────────────────────────────────────────────── */
+.tv-btn-primary {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.75rem;
+  border-radius: var(--tv-radius-md);
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: white;
+  background: linear-gradient(135deg, var(--tv-accent), var(--tv-accent-2));
+  box-shadow: 0 0 24px var(--tv-glow);
+  transition: opacity var(--tv-duration) var(--tv-ease),
+              transform var(--tv-duration) var(--tv-ease),
+              box-shadow var(--tv-duration) var(--tv-ease);
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+.tv-btn-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 0 40px var(--tv-glow);
+}
+.tv-btn-primary:active { transform: scale(0.97); }
+
+/* ─── UTILITY: GHOST BUTTON ──────────────────────────────────────────────── */
+.tv-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.75rem;
+  border-radius: var(--tv-radius-md);
+  font-weight: 500;
+  font-size: 0.875rem;
+  color: var(--tv-text-2);
+  background: transparent;
+  border: 1px solid var(--tv-border);
+  transition: all var(--tv-duration) var(--tv-ease);
+  cursor: pointer;
+  outline: none;
+}
+.tv-btn-ghost:hover {
+  border-color: var(--tv-border-hover);
+  color: var(--tv-text-1);
+  background: rgba(255,255,255,0.04);
+}
+.tv-btn-ghost:active { transform: scale(0.97); }
+
+/* ─── UTILITY: INPUT FIELD ───────────────────────────────────────────────── */
+.tv-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  padding: 0.875rem 1rem 0.875rem 2.75rem;
+  font-size: 0.875rem;
+  color: var(--tv-text-1);
+  outline: none;
+  transition: border-color var(--tv-duration) var(--tv-ease),
+              box-shadow var(--tv-duration) var(--tv-ease),
+              background var(--tv-duration) var(--tv-ease);
+  -webkit-appearance: none;
+  appearance: none;
+}
+.tv-input::placeholder { color: var(--tv-text-3); }
+.tv-input:focus {
+  border-color: var(--tv-accent);
+  background: rgba(99, 102, 241, 0.05);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+.tv-input.error {
+  border-color: #f87171;
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.15);
+}
+
+/* ─── UTILITY: BACKGROUND MESH ───────────────────────────────────────────── */
+.tv-mesh {
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(99,102,241,0.12) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(168,85,247,0.10) 0%, transparent 50%),
+    radial-gradient(circle at 60% 10%, rgba(236,72,153,0.06) 0%, transparent 40%);
+}
+
+/* ─── ANIMATIONS ─────────────────────────────────────────────────────────── */
+@keyframes tv-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes tv-pulse-glow {
+  0%, 100% { box-shadow: 0 0 12px var(--tv-glow); }
+  50% { box-shadow: 0 0 32px var(--tv-glow), 0 0 60px rgba(99,102,241,0.2); }
+}
+@keyframes tv-shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+@keyframes tv-shimmer-text {
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+@keyframes tv-typing-cursor {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+/* ─── HERO SHIMMER TEXT ──────────────────────────────────────────────────── */
+.tv-shimmer-text {
+  background: linear-gradient(
+    135deg,
+    var(--tv-text-1) 0%,
+    #818cf8 30%,
+    var(--tv-text-1) 50%,
+    #a78bfa 70%,
+    var(--tv-text-1) 100%
+  );
+  background-size: 300% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: tv-shimmer-text 5s linear infinite;
+}
+.tv-typing-cursor::after {
+  content: '|';
+  margin-left: 2px;
+  animation: tv-typing-cursor 0.9s step-end infinite;
+  -webkit-text-fill-color: var(--tv-accent);
+  color: var(--tv-accent);
+}
+
+.tv-animate-float { animation: tv-float 4s ease-in-out infinite; }
+.tv-animate-pulse-glow { animation: tv-pulse-glow 2.5s ease-in-out infinite; }
