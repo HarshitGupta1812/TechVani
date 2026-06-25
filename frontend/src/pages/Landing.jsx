@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, X, Send, ArrowRight, Shield, Globe, Zap, BookOpen, ChevronDown } from 'lucide-react';
+import { X, Send, ArrowRight, Shield, Globe, Zap, BookOpen, ChevronDown } from 'lucide-react';
 import { FaGithub, FaLinkedin, FaTwitter } from 'react-icons/fa';
 import TechVaniLogo from '../components/TechVaniLogo';
 
@@ -81,21 +81,24 @@ export default function Landing({ onOpenAuth }) {
   const [input, setInput] = useState('');
   const [scrolled, setScrolled] = useState(false);
   const [phraseIndex, setPhraseIndex] = useState(0);
+  const messagesEndRef = useRef(null);
 
-  /* Scroll listener */
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  /* Hero phrase cycling — every 3.5 s */
   useEffect(() => {
     const timer = setInterval(() => {
       setPhraseIndex(i => (i + 1) % HERO_PHRASES.length);
     }, 3500);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
 
   const handleSend = () => {
     if (!input.trim()) return;
@@ -111,7 +114,7 @@ export default function Landing({ onOpenAuth }) {
   };
 
   return (
-    <div className="tv-mesh" style={{ background: 'var(--tv-bg)' }}>
+    <div className="tv-mesh flex-1 flex flex-col" style={{ background: 'var(--tv-bg)' }}>
 
       {/* ── NAVBAR ─────────────────────────────────────────────────────── */}
       <motion.nav
@@ -120,19 +123,30 @@ export default function Landing({ onOpenAuth }) {
         transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           scrolled
-            ? 'py-3 bg-[#05050a]/85 backdrop-blur-2xl border-b border-white/5 shadow-2xl shadow-black/40'
+            ? 'py-3 bg-[#05050a]/90 backdrop-blur-2xl border-b border-white/5 shadow-2xl shadow-black/40'
             : 'py-5 bg-transparent'
         }`}
       >
-        <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
-          <TechVaniLogo size="md" />
+        {/*
+          3-column grid — the only reliable way to have:
+            col 1 (left)  : logo with padding from the screen edge
+            col 2 (center): nav links truly centred, no absolute-position tricks
+            col 3 (right) : login button flush to the right edge
+        */}
+        <div className="max-w-7xl mx-auto w-full px-6 sm:px-10 lg:px-16 grid grid-cols-3 items-center">
 
-          <div className="hidden md:flex items-center gap-8">
+          {/* ── col 1 : Logo ── */}
+          <div className="flex items-center pl-2">
+            <TechVaniLogo size="md" />
+          </div>
+
+          {/* ── col 2 : Nav links — centred in its own column ── */}
+          <div className="hidden md:flex items-center justify-center gap-8">
             {['Features', 'How It Works'].map((item) => (
               <a
                 key={item}
                 href={`#${item.toLowerCase().replace(' ', '-')}`}
-                className="text-sm font-medium transition-colors duration-200"
+                className="text-sm font-medium transition-colors duration-200 whitespace-nowrap"
                 style={{ color: 'var(--tv-text-3)' }}
                 onMouseEnter={e => e.target.style.color = 'var(--tv-text-1)'}
                 onMouseLeave={e => e.target.style.color = 'var(--tv-text-3)'}
@@ -142,28 +156,20 @@ export default function Landing({ onOpenAuth }) {
             ))}
           </div>
 
-          <div className="flex items-center gap-3">
+          {/* ── col 3 : Login — pushed to the right edge ── */}
+          <div className="flex items-center justify-end pr-2">
             <button
               onClick={() => onOpenAuth('login')}
-              className="tv-btn-ghost text-sm px-4 py-2"
+              className="tv-btn-ghost text-sm px-6 py-2.5"
             >
-              Sign In
+              Login
             </button>
-            <motion.button
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => onOpenAuth('signup')}
-              className="tv-btn-primary text-sm px-5 py-2.5"
-            >
-              Get Started
-              <ArrowRight size={14} />
-            </motion.button>
           </div>
         </div>
       </motion.nav>
 
       {/* ── HERO ───────────────────────────────────────────────────────── */}
-      <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-6 overflow-hidden pt-20 pb-16">
+      <section className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden pt-20 pb-10">
 
         {/* Ambient orbs */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -175,7 +181,7 @@ export default function Landing({ onOpenAuth }) {
             style={{ background: 'radial-gradient(circle, rgba(236,72,153,0.08) 0%, transparent 70%)' }} />
         </div>
 
-        {/* Grid lines overlay */}
+        {/* Grid lines */}
         <div className="absolute inset-0 pointer-events-none"
           style={{
             backgroundImage: 'linear-gradient(rgba(99,102,241,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.04) 1px, transparent 1px)',
@@ -183,97 +189,96 @@ export default function Landing({ onOpenAuth }) {
           }}
         />
 
-        <div className="relative z-10 max-w-5xl mx-auto w-full">
+        {/* Centered content column — each child has its own explicit bottom margin */}
+        <div className="relative z-10 w-full max-w-4xl mx-auto px-6 sm:px-8 flex flex-col items-center text-center">
 
           {/* Badge */}
-          <motion.div {...fadeUp(0.1)}>
-            <span className="inline-flex items-center gap-2 text-xs font-semibold tracking-widest uppercase px-4 py-2 rounded-full mb-8"
+          <motion.div {...fadeUp(0.1)} className="mb-5">
+            <span
+              className="inline-flex items-center gap-2 text-xs font-semibold tracking-widest uppercase px-3 py-1.5 rounded-full"
               style={{
                 color: 'var(--tv-accent)',
                 background: 'rgba(99,102,241,0.1)',
                 border: '1px solid rgba(99,102,241,0.25)',
-              }}>
+              }}
+            >
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
               AI-Powered Localization Engine
             </span>
           </motion.div>
 
-          {/* ── CINEMATIC CYCLING HEADLINE ────────────────────────────── */}
-          {/* Fixed-height container prevents layout shift when phrases swap */}
-          <div className="h-[11rem] md:h-[16rem] flex items-center justify-center mb-6">
-            <AnimatePresence mode="wait">
-              <motion.h1
-                key={phraseIndex}
-                initial={{ opacity: 0, y: 28, filter: 'blur(8px)' }}
-                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                exit={{ opacity: 0, y: -28, filter: 'blur(8px)' }}
-                transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
-                className="text-6xl md:text-8xl font-extrabold leading-[0.95] tracking-tighter text-center"
-              >
-                <span className="tv-shimmer-text block">
-                  {HERO_PHRASES[phraseIndex].line1}
-                </span>
-                <span className="tv-gradient-text block">
-                  {HERO_PHRASES[phraseIndex].line2}
-                </span>
-              </motion.h1>
-            </AnimatePresence>
-          </div>
+          {/* Headline — single line, compact size */}
+          <AnimatePresence mode="wait">
+            <motion.h1
+              key={phraseIndex}
+              initial={{ opacity: 0, y: 20, filter: 'blur(6px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, y: -20, filter: 'blur(6px)' }}
+              transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+              className="text-4xl sm:text-5xl md:text-[3.5rem] font-extrabold tracking-tight text-center w-full mb-5"
+              style={{ lineHeight: 1.15 }}
+            >
+              <span className="tv-shimmer-text">{HERO_PHRASES[phraseIndex].line1} </span>
+              <span className="tv-gradient-text">{HERO_PHRASES[phraseIndex].line2}</span>
+            </motion.h1>
+          </AnimatePresence>
 
-          {/* Phrase progress indicators */}
-          <motion.div {...fadeUp(0.15)} className="flex items-center justify-center gap-2 mb-8">
+          {/* Phrase progress dots */}
+          <motion.div {...fadeUp(0.15)} className="flex items-center justify-center gap-2 mb-6">
             {HERO_PHRASES.map((_, i) => (
               <button
                 key={i}
                 onClick={() => setPhraseIndex(i)}
                 className="transition-all duration-500 rounded-full"
                 style={{
-                  width: i === phraseIndex ? '24px' : '6px',
+                  width: i === phraseIndex ? '22px' : '6px',
                   height: '6px',
                   background: i === phraseIndex
                     ? 'linear-gradient(90deg, #6366f1, #a855f7)'
-                    : 'rgba(255,255,255,0.15)',
+                    : 'rgba(255,255,255,0.18)',
                 }}
               />
             ))}
           </motion.div>
 
-          {/* Sub */}
+          {/* Subtitle */}
           <motion.p
             {...fadeUp(0.35)}
-            className="text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed"
+            className="text-base md:text-lg max-w-lg mx-auto mb-7 leading-relaxed text-center"
             style={{ color: 'var(--tv-text-2)' }}
           >
-            Upload YouTube links, videos, or PDFs. TechVani translates complex academic content
-            into any Indian language while{' '}
+            Upload YouTube links, videos, or PDFs — translated into any Indian language while{' '}
             <strong style={{ color: 'var(--tv-text-1)', fontWeight: 600 }}>flawlessly preserving</strong>{' '}
-            mathematical equations and diagrams.
+            equations and diagrams.
           </motion.p>
 
-          {/* CTAs */}
-          <motion.div {...fadeUp(0.5)} className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          {/* CTA Buttons */}
+          <motion.div
+            {...fadeUp(0.5)}
+            className="flex flex-row items-center justify-center gap-4 w-full mb-7"
+          >
             <motion.button
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => onOpenAuth('signup')}
-              className="tv-btn-primary text-base px-8 py-4"
+              className="tv-btn-primary text-sm px-7 py-3"
             >
               Start Learning Free
-              <ArrowRight size={16} />
+              <ArrowRight size={15} />
             </motion.button>
             <motion.a
               whileHover={{ scale: 1.03 }}
               href="#features"
-              className="tv-btn-ghost text-base px-8 py-4"
+              className="tv-btn-ghost text-sm px-7 py-3"
             >
               See How It Works
             </motion.a>
           </motion.div>
 
-          {/* Trust pills — FIXED: flex-wrap + gap-y-2 so tags never clip on small screens */}
+          {/* Language trust pills */}
           <motion.div
             {...fadeUp(0.65)}
-            className="mt-10 flex flex-wrap items-center justify-center gap-x-3 gap-y-2"
+            className="flex flex-wrap items-center justify-center gap-x-2 gap-y-2"
           >
             {LANGUAGES.map((lang, i) => (
               <span
@@ -282,7 +287,7 @@ export default function Landing({ onOpenAuth }) {
                 style={{
                   color: 'var(--tv-text-3)',
                   border: '1px solid var(--tv-border)',
-                  background: 'rgba(255,255,255,0.02)',
+                  background: 'rgba(255,255,255,0.03)',
                 }}
               >
                 {lang}
@@ -307,28 +312,27 @@ export default function Landing({ onOpenAuth }) {
       </section>
 
       {/* ── FEATURES ───────────────────────────────────────────────────── */}
-      {/* FIXED: overflow-hidden + isolate keeps gradient orbs from bleeding across sections */}
-      <section id="features" className="relative py-32 px-6 overflow-hidden isolate">
-        <div className="max-w-6xl mx-auto">
+      <section id="features" className="relative py-28 px-6 lg:px-8 overflow-hidden isolate">
+        <div className="max-w-5xl mx-auto w-full">
 
-          {/* Section header */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
-            className="text-center mb-20"
+            className="flex flex-col items-center text-center mb-16 w-full"
           >
-            <span className="inline-block text-xs font-semibold tracking-widest uppercase mb-4 px-3 py-1 rounded-full"
-              style={{ color: 'var(--tv-accent-2)', border: '1px solid rgba(168,85,247,0.3)', background: 'rgba(168,85,247,0.08)' }}>
+            <span
+              className="inline-block text-xs font-semibold tracking-widest uppercase mb-4 px-3 py-1 rounded-full"
+              style={{ color: 'var(--tv-accent-2)', border: '1px solid rgba(168,85,247,0.3)', background: 'rgba(168,85,247,0.08)' }}
+            >
               Platform Capabilities
             </span>
-            <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight mt-4 mb-5">
+            <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight mt-2 mb-5 text-center">
               <span style={{ color: 'var(--tv-text-1)' }}>Everything you need to</span>
               <br />
               <span className="tv-gradient-text">learn without barriers.</span>
             </h2>
-            {/* FIXED: explicit text-center + max-w-xl + mx-auto guarantees centering */}
             <p
               className="text-lg max-w-xl mx-auto text-center"
               style={{ color: 'var(--tv-text-2)' }}
@@ -338,7 +342,6 @@ export default function Landing({ onOpenAuth }) {
             </p>
           </motion.div>
 
-          {/* Feature grid */}
           <motion.div
             variants={stagger}
             initial="initial"
@@ -353,12 +356,10 @@ export default function Landing({ onOpenAuth }) {
                 whileHover={{ y: -6 }}
                 className="tv-card group relative p-8 overflow-hidden cursor-default"
               >
-                {/* Hover glow */}
                 <div
                   className="absolute inset-0 rounded-[inherit] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
                   style={{ background: `radial-gradient(circle at 30% 30%, ${f.glow} 0%, transparent 60%)` }}
                 />
-
                 <div className="relative z-10">
                   <div className="flex items-start justify-between mb-6">
                     <div
@@ -374,7 +375,6 @@ export default function Landing({ onOpenAuth }) {
                       {f.tag}
                     </span>
                   </div>
-
                   <h3 className="text-xl font-bold mb-3" style={{ color: 'var(--tv-text-1)' }}>{f.title}</h3>
                   <p className="text-sm leading-relaxed" style={{ color: 'var(--tv-text-2)' }}>{f.desc}</p>
                 </div>
@@ -385,16 +385,15 @@ export default function Landing({ onOpenAuth }) {
       </section>
 
       {/* ── HOW IT WORKS ───────────────────────────────────────────────── */}
-      {/* FIXED: pb-40 gives the section plenty of room before the footer border-t */}
-      <section id="how-it-works" className="relative py-32 pb-40 px-6 overflow-hidden isolate">
-        <div className="max-w-4xl mx-auto">
+      <section id="how-it-works" className="relative py-28 pb-36 px-6 lg:px-8 overflow-hidden isolate">
+        <div className="max-w-4xl mx-auto w-full">
 
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
-            className="text-center mb-20"
+            className="flex flex-col items-center text-center mb-16 w-full"
           >
             <span
               className="inline-block text-xs font-semibold tracking-widest uppercase mb-4 px-3 py-1 rounded-full"
@@ -403,7 +402,7 @@ export default function Landing({ onOpenAuth }) {
               How It Works
             </span>
             <h2
-              className="text-4xl md:text-5xl font-extrabold tracking-tight mt-4"
+              className="text-4xl md:text-5xl font-extrabold tracking-tight mt-2 text-center"
               style={{ color: 'var(--tv-text-1)' }}
             >
               Three steps to{' '}
@@ -412,7 +411,6 @@ export default function Landing({ onOpenAuth }) {
           </motion.div>
 
           <div className="relative">
-            {/* Connector line */}
             <div
               className="absolute top-10 left-[calc(16.67%+10px)] right-[calc(16.67%+10px)] h-px hidden md:block"
               style={{ background: 'linear-gradient(90deg, transparent, rgba(99,102,241,0.4), rgba(168,85,247,0.4), transparent)' }}
@@ -432,7 +430,7 @@ export default function Landing({ onOpenAuth }) {
                   className="flex flex-col items-center text-center"
                 >
                   <div
-                    className="w-20 h-20 rounded-2xl flex items-center justify-center mb-6 relative tv-animate-pulse-glow"
+                    className="w-20 h-20 rounded-2xl flex items-center justify-center mb-6 flex-shrink-0 tv-animate-pulse-glow"
                     style={{
                       background: 'var(--tv-surface)',
                       border: '1px solid rgba(99,102,241,0.3)',
@@ -441,19 +439,18 @@ export default function Landing({ onOpenAuth }) {
                     <span className="text-2xl font-black tv-gradient-text">{step.num}</span>
                   </div>
                   <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--tv-text-1)' }}>{step.title}</h3>
-                  <p className="text-sm leading-relaxed" style={{ color: 'var(--tv-text-2)' }}>{step.desc}</p>
+                  <p className="text-sm leading-relaxed" style={{ color: 'var(--tv-text-2)', maxWidth: '180px' }}>{step.desc}</p>
                 </motion.div>
               ))}
             </motion.div>
           </div>
 
-          {/* CTA — FIXED: mt-16 + mb-8 prevents footer collision */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8, delay: 0.3 }}
-            className="text-center mt-16 mb-8"
+            className="flex justify-center mt-16"
           >
             <motion.button
               whileHover={{ scale: 1.05, y: -3 }}
@@ -469,14 +466,12 @@ export default function Landing({ onOpenAuth }) {
       </section>
 
       {/* ── FOOTER ─────────────────────────────────────────────────────── */}
-      <footer className="relative py-12 px-6 border-t" style={{ borderColor: 'var(--tv-border)' }}>
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+      <footer className="relative py-12 px-6 lg:px-8 border-t" style={{ borderColor: 'var(--tv-border)' }}>
+        <div className="max-w-6xl mx-auto w-full flex flex-col md:flex-row items-center justify-between gap-6">
           <TechVaniLogo size="sm" />
-
-          <p className="text-xs" style={{ color: 'var(--tv-text-3)' }}>
-            © {new Date().getFullYear()} TechVani. Making knowledge accessible in every mother tongue.
+          <p className="text-xs text-center" style={{ color: 'var(--tv-text-3)' }}>
+            {`© ${new Date().getFullYear()} TechVani. Making knowledge accessible in every mother tongue.`}
           </p>
-
           <div className="flex items-center gap-5">
             {[
               { Icon: FaGithub,   href: '#' },
@@ -499,52 +494,66 @@ export default function Landing({ onOpenAuth }) {
         </div>
       </footer>
 
-      {/* ── AI CHATBOT BUBBLE ───────────────────────────────────────────── */}
+      {/* ── TECHVANI AI CHATBOT ─────────────────────────────────────────── */}
       <div className="fixed bottom-8 right-8 z-50 flex flex-col items-end gap-4">
+
+        {/* Chat popup panel */}
         <AnimatePresence>
           {chatOpen && (
             <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.92, transformOrigin: 'bottom right' }}
+              initial={{ opacity: 0, y: 24, scale: 0.94 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.92 }}
-              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="w-96 h-[520px] flex flex-col overflow-hidden rounded-3xl shadow-2xl"
+              exit={{ opacity: 0, y: 24, scale: 0.94 }}
+              transition={{ type: 'spring', damping: 26, stiffness: 280 }}
+              className="w-[360px] sm:w-96 flex flex-col overflow-hidden rounded-3xl"
               style={{
+                height: '500px',
                 background: 'var(--tv-surface)',
                 border: '1px solid var(--tv-border)',
-                boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
+                boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,102,241,0.12)',
               }}
             >
-              {/* Chat header */}
-              <div className="flex items-center gap-3 p-5 border-b flex-shrink-0" style={{ borderColor: 'var(--tv-border)' }}>
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-                  style={{ background: 'linear-gradient(135deg, #6366f1, #a855f7)' }}>
-                  <Zap size={14} className="text-white" />
+              {/* Chat header with TechVani logo + X close button */}
+              <div
+                className="flex items-center gap-3 px-5 py-4 flex-shrink-0"
+                style={{
+                  borderBottom: '1px solid var(--tv-border)',
+                  background: 'linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(168,85,247,0.06) 100%)',
+                }}
+              >
+                <div className="flex-shrink-0">
+                  <TechVaniLogo size="sm" wordmark={false} />
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-sm" style={{ color: 'var(--tv-text-1)' }}>TechVani AI</h3>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                     <span className="text-xs" style={{ color: 'var(--tv-text-3)' }}>Online</span>
                   </div>
                 </div>
-                <button
+                {/* X close button */}
+                <motion.button
+                  whileHover={{ scale: 1.15, rotate: 90 }}
+                  whileTap={{ scale: 0.9 }}
                   onClick={() => setChatOpen(false)}
-                  style={{ color: 'var(--tv-text-3)' }}
+                  className="flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center"
+                  style={{ color: 'var(--tv-text-3)', background: 'rgba(255,255,255,0.05)', transition: 'color 0.2s' }}
                   onMouseEnter={e => e.currentTarget.style.color = 'var(--tv-text-1)'}
                   onMouseLeave={e => e.currentTarget.style.color = 'var(--tv-text-3)'}
+                  aria-label="Close chat"
                 >
-                  <X size={18} />
-                </button>
+                  <X size={16} />
+                </motion.button>
               </div>
 
-              {/* Messages — min-h-0 allows flex child to scroll correctly */}
-              <div className="flex-1 overflow-y-auto p-5 space-y-3 min-h-0">
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
                 {chatMessages.map((msg, i) => (
                   <motion.div
                     key={i}
-                    initial={{ opacity: 0, y: 10 }}
+                    initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25 }}
                     className={`flex ${msg.from === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
@@ -561,10 +570,14 @@ export default function Landing({ onOpenAuth }) {
                     </div>
                   </motion.div>
                 ))}
+                <div ref={messagesEndRef} />
               </div>
 
-              {/* Input */}
-              <div className="p-4 border-t flex items-center gap-3 flex-shrink-0" style={{ borderColor: 'var(--tv-border)' }}>
+              {/* Input row */}
+              <div
+                className="p-4 flex items-center gap-3 flex-shrink-0"
+                style={{ borderTop: '1px solid var(--tv-border)' }}
+              >
                 <input
                   value={input}
                   onChange={e => setInput(e.target.value)}
@@ -585,6 +598,7 @@ export default function Landing({ onOpenAuth }) {
                   onClick={handleSend}
                   className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                   style={{ background: 'linear-gradient(135deg, #6366f1, #a855f7)' }}
+                  aria-label="Send message"
                 >
                   <Send size={15} className="text-white" />
                 </motion.button>
@@ -593,20 +607,26 @@ export default function Landing({ onOpenAuth }) {
           )}
         </AnimatePresence>
 
-        {/* Bubble toggle */}
+        {/* Floating bubble with TechVani logo */}
         <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={() => setChatOpen(!chatOpen)}
-          className="w-14 h-14 rounded-2xl flex items-center justify-center tv-animate-pulse-glow"
-          style={{ background: 'linear-gradient(135deg, #6366f1, #a855f7)', boxShadow: '0 0 24px rgba(99,102,241,0.4)' }}
+          whileHover={{ scale: 1.08, y: -2 }}
+          whileTap={{ scale: 0.94 }}
+          onClick={() => setChatOpen(prev => !prev)}
+          className="w-14 h-14 rounded-2xl flex items-center justify-center relative overflow-hidden tv-animate-pulse-glow"
+          style={{
+            background: 'linear-gradient(135deg, #1e1b4b 0%, #2e1065 60%, #1e1b4b 100%)',
+            border: '1px solid rgba(99,102,241,0.4)',
+            boxShadow: '0 0 28px rgba(99,102,241,0.45)',
+          }}
+          aria-label="Open TechVani AI chat"
         >
-          <AnimatePresence mode="wait">
-            {chatOpen
-              ? <motion.div key="x" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }}><X size={22} className="text-white" /></motion.div>
-              : <motion.div key="chat" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }}><MessageCircle size={22} className="text-white" /></motion.div>
-            }
-          </AnimatePresence>
+          <div
+            className="absolute inset-0 rounded-2xl opacity-60"
+            style={{ background: 'radial-gradient(circle at 40% 35%, rgba(99,102,241,0.35) 0%, transparent 70%)' }}
+          />
+          <div className="relative z-10">
+            <TechVaniLogo size="sm" wordmark={false} />
+          </div>
         </motion.button>
       </div>
     </div>

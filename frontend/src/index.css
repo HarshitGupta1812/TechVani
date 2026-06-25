@@ -21,20 +21,22 @@
   --tv-duration:  0.3s;
 }
 
-/* ─── GLOBAL RESET ───────────────────────────────────────────────────────── */
-*, *::before, *::after {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
+/* ─── BASE LAYOUT ────────────────────────────────────────────────────────── */
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
-html, body, #root {
-  min-height: 100%;
+body {
+  overflow-x: hidden;
+}
+
+/* #root must be a flex column so the Landing page fills the full viewport */
+#root {
+  min-height: 100vh;
   width: 100%;
+  display: flex;
+  flex-direction: column;
   background-color: var(--tv-bg);
   color: var(--tv-text-1);
 }
@@ -54,6 +56,8 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  background-color: var(--tv-bg);
+  color: var(--tv-text-1);
 }
 
 /* ─── UTILITY: NO SELECT ON UI CHROME ────────────────────────────────────── */
