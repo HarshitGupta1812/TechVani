@@ -8,9 +8,6 @@
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-/** Google OAuth redirect URL — navigating here starts the OAuth flow */
-export const GOOGLE_AUTH_URL = `${BASE_URL}/auth/google`;
-
 /**
  * POST /api/auth/send-otp
  * Step 1 of signup: validates input, generates OTP, sends email.

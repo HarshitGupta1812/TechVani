@@ -6,6 +6,9 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth.js';
+import chatRoutes from './routes/chat.js';
+import processRoutes from './routes/process.js';
+import historyRoutes from './routes/history.js';
 
 dotenv.config();
 
@@ -31,6 +34,9 @@ app.use(express.json({ limit: '50mb' }));
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/chat', chatRoutes);
+app.use('/api/process', processRoutes);
+app.use('/api/history', historyRoutes);
 
 // Database Connection
 mongoose.connect(process.env.MONGODB_URI)
@@ -50,7 +56,7 @@ io.on('connection', (socket) => {
     const { documentId, message, userId } = data;
     // In a full production cycle, this triggers the aiService contextual pipeline
     const botResponse = `Processed context query for "${message.substring(0, 20)}..." in document ${documentId}.`;
-    
+
     io.to(`doc_${documentId}`).emit('receive-chat-message', {
       sender: 'TechVani AI',
       text: botResponse,

@@ -28,18 +28,6 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    // ── Auth Provider ─────────────────────────────────────────────────────────
-    authProvider: {
-      type: String,
-      enum: ['email', 'google'],
-      default: 'email',
-    },
-    googleId: {
-      type: String,
-      default: null,
-      // sparse: only indexed when not null (allows multiple null values)
-      sparse: true,
-    },
     // ── Profile ───────────────────────────────────────────────────────────────
     avatar: {
       type: String,
@@ -50,8 +38,4 @@ const userSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
-
-// Sparse unique index on googleId — supports multiple null values
-userSchema.index({ googleId: 1 }, { unique: true, sparse: true });
-
 export default mongoose.model('User', userSchema);

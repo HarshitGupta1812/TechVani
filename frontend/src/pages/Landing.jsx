@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, ArrowRight, Shield, Globe, Zap, BookOpen, ChevronDown } from 'lucide-react';
+import { X, Send, ArrowRight, Shield, Globe, Zap, BookOpen, ChevronDown, Video, FileText, Volume2 } from 'lucide-react';
 import { FaGithub, FaLinkedin, FaTwitter } from 'react-icons/fa';
 import TechVaniLogo from '../components/TechVaniLogo';
 
 /* ─── HERO CYCLING PHRASES ──────────────────────────────────────────────── */
 const HERO_PHRASES = [
-  { line1: 'Learn in Your',    line2: 'Mother Tongue.'      },
-  { line1: 'Break Every',      line2: 'Language Barrier.'   },
-  { line1: 'Master Any',       line2: 'Subject — Natively.' },
+  { line1: 'Learn in Your', line2: 'Mother Tongue.' },
+  { line1: 'Break Every', line2: 'Language Barrier.' },
+  { line1: 'Master Any', line2: 'Subject-Natively.' },
 ];
 
 /* ─── ANIMATION VARIANTS ────────────────────────────────────────────────── */
@@ -31,46 +31,46 @@ const featureCard = {
 /* ─── DATA ──────────────────────────────────────────────────────────────── */
 const features = [
   {
-    icon: Shield,
+    icon: Video,
+    color: 'from-red-500 to-rose-600',
+    glow: 'rgba(239,68,68,0.25)',
+    title: 'YouTube Intelligence',
+    desc: 'Paste any YouTube link. AI extracts, transcribes, and summarizes the content directly from the video.',
+    tag: 'Video Source',
+  },
+  {
+    icon: FileText,
     color: 'from-indigo-500 to-violet-600',
     glow: 'rgba(99,102,241,0.25)',
-    title: 'Equation Guard™',
-    desc: 'Our proprietary LaTeX-fence technology identifies and preserves every mathematical equation, formula, and diagram—untouched—while translating the surrounding prose perfectly.',
-    tag: 'Core Tech',
+    title: 'Document Analysis',
+    desc: 'Upload PDF, DOC, or TXT files for instant AI-powered comprehension and summarization.',
+    tag: 'Document Source',
   },
   {
     icon: Globe,
     color: 'from-violet-500 to-purple-600',
     glow: 'rgba(168,85,247,0.25)',
-    title: 'Multi-Script Support',
-    desc: 'Translate academic content into 8 Indian languages including Hindi, Telugu, Tamil, Bengali, and more. Supports Devanagari, native scripts, and phonetic Romanization.',
-    tag: '8 Languages',
+    title: '22 Indian Languages',
+    desc: 'Translate your summaries into any of 22 Indian languages, breaking every language barrier.',
+    tag: 'Multilingual',
   },
   {
-    icon: Zap,
-    color: 'from-pink-500 to-rose-600',
-    glow: 'rgba(236,72,153,0.25)',
-    title: 'Real-Time AI Chat',
-    desc: 'Ask questions about your document in your native language. TechVani AI responds with context-aware answers, citing specific chapters and page references in real time.',
-    tag: 'AI-Powered',
-  },
-  {
-    icon: BookOpen,
+    icon: Volume2,
     color: 'from-amber-500 to-orange-600',
     glow: 'rgba(245,158,11,0.25)',
-    title: 'Smart Flashcards',
-    desc: 'Automatically extract key concepts, definitions, and formulas from your content and generate interactive flashcard decks for spaced-repetition learning.',
-    tag: 'Auto-Generated',
+    title: 'Audio & Text Output',
+    desc: 'Get your summaries as human-like neural audio or clean formatted text. Listen on the go or read at your own pace.',
+    tag: 'Flexible Output',
   },
 ];
 
 const steps = [
-  { num: '01', title: 'Upload Content', desc: 'Paste a YouTube link, upload a PDF, or drop a video file.' },
-  { num: '02', title: 'Configure AI', desc: 'Select your subject domain, target language, and script style.' },
-  { num: '03', title: 'Learn Natively', desc: 'Get your fully localized content with AI chat and flashcards ready.' },
+  { num: '01', title: 'Choose Your Source', desc: 'Paste a YouTube link or upload a document (PDF/DOC/TXT).' },
+  { num: '02', title: 'Configure Output', desc: 'Select subject, source/output languages, and choose Audio or Text summary.' },
+  { num: '03', title: 'Get Your Summary', desc: 'Receive a polished summary in your language — listen to it or read it.' },
 ];
 
-const LANGUAGES = ['Hindi', 'Telugu', 'Tamil', 'Bengali', '+4 more'];
+const LANGUAGES = ['Hindi', 'Telugu', 'Tamil', 'Bengali', 'Marathi', 'Gujarati', '+16 more'];
 
 /* ─── COMPONENT ─────────────────────────────────────────────────────────── */
 export default function Landing({ onOpenAuth }) {
@@ -79,9 +79,14 @@ export default function Landing({ onOpenAuth }) {
     { from: 'bot', text: "Hello! I'm TechVani AI. Ask me anything about how localized learning works." }
   ]);
   const [input, setInput] = useState('');
+  const [isChatLoading, setIsChatLoading] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [phraseIndex, setPhraseIndex] = useState(0);
   const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -100,17 +105,28 @@ export default function Landing({ onOpenAuth }) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  const handleSend = async () => {
+    if (!input.trim() || isChatLoading) return;
     const userText = input;
     setChatMessages(prev => [...prev, { from: 'user', text: userText }]);
     setInput('');
-    setTimeout(() => {
-      setChatMessages(prev => [...prev, {
-        from: 'bot',
-        text: `Great question! TechVani uses AI to process "${userText.substring(0, 20)}..." while preserving all mathematical equations and technical terminology.`
-      }]);
-    }, 900);
+    setIsChatLoading(true);
+
+    try {
+      const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const res = await fetch(`${API}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userText, conversation_history: chatMessages }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+      setChatMessages(prev => [...prev, { from: 'bot', text: data.reply }]);
+    } catch (err) {
+      setChatMessages(prev => [...prev, { from: 'bot', text: 'Something went wrong. Please try again.', isError: true }]);
+    } finally {
+      setIsChatLoading(false);
+    }
   };
 
   return (
@@ -121,11 +137,10 @@ export default function Landing({ onOpenAuth }) {
         initial={{ y: -60, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          scrolled
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled
             ? 'py-3 bg-[#05050a]/90 backdrop-blur-2xl border-b border-white/5 shadow-2xl shadow-black/40'
             : 'py-5 bg-transparent'
-        }`}
+          }`}
       >
         {/*
           3-column grid — the only reliable way to have:
@@ -145,7 +160,7 @@ export default function Landing({ onOpenAuth }) {
             {['Features', 'How It Works'].map((item) => (
               <a
                 key={item}
-                href={`#${item.toLowerCase().replace(' ', '-')}`}
+                href={`#${item.toLowerCase().replace(/ /g, '-')}`}
                 className="text-sm font-medium transition-colors duration-200 whitespace-nowrap"
                 style={{ color: 'var(--tv-text-3)' }}
                 onMouseEnter={e => e.target.style.color = 'var(--tv-text-1)'}
@@ -263,12 +278,12 @@ export default function Landing({ onOpenAuth }) {
               onClick={() => onOpenAuth('signup')}
               className="tv-btn-primary text-sm px-7 py-3"
             >
-              Start Learning Free
+              Start Learning
               <ArrowRight size={15} />
             </motion.button>
             <motion.a
               whileHover={{ scale: 1.03 }}
-              href="#features"
+              href="#how-it-works"
               className="tv-btn-ghost text-sm px-7 py-3"
             >
               See How It Works
@@ -458,7 +473,7 @@ export default function Landing({ onOpenAuth }) {
               onClick={() => onOpenAuth('signup')}
               className="tv-btn-primary text-base px-10 py-4"
             >
-              Start for Free — No Credit Card
+              Start Learning
               <ArrowRight size={16} />
             </motion.button>
           </motion.div>
@@ -474,8 +489,8 @@ export default function Landing({ onOpenAuth }) {
           </p>
           <div className="flex items-center gap-5">
             {[
-              { Icon: FaGithub,   href: '#' },
-              { Icon: FaTwitter,  href: '#' },
+              { Icon: FaGithub, href: '#' },
+              { Icon: FaTwitter, href: '#' },
               { Icon: FaLinkedin, href: '#' },
             ].map(({ Icon, href }, i) => (
               <motion.a
@@ -505,7 +520,7 @@ export default function Landing({ onOpenAuth }) {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 24, scale: 0.94 }}
               transition={{ type: 'spring', damping: 26, stiffness: 280 }}
-              className="w-[360px] sm:w-96 flex flex-col overflow-hidden rounded-3xl"
+              className="absolute bottom-[72px] right-0 z-20 w-[360px] sm:w-96 flex flex-col overflow-hidden rounded-3xl"
               style={{
                 height: '500px',
                 background: 'var(--tv-surface)',
@@ -557,19 +572,38 @@ export default function Landing({ onOpenAuth }) {
                     className={`flex ${msg.from === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-[82%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
-                        msg.from === 'user' ? 'text-white' : ''
-                      }`}
+                      className={`max-w-[82%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${msg.from === 'user' ? 'text-white' : ''
+                        }`}
                       style={
                         msg.from === 'user'
                           ? { background: 'linear-gradient(135deg, #6366f1, #a855f7)' }
-                          : { background: 'rgba(255,255,255,0.05)', color: 'var(--tv-text-2)', border: '1px solid var(--tv-border)' }
+                          : {
+                            background: msg.isError ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.05)',
+                            color: msg.isError ? '#f87171' : 'var(--tv-text-2)',
+                            border: `1px solid ${msg.isError ? 'rgba(239,68,68,0.25)' : 'var(--tv-border)'}`,
+                          }
                       }
                     >
                       {msg.text}
                     </div>
                   </motion.div>
                 ))}
+
+                {/* Loading dots */}
+                {isChatLoading && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex justify-start"
+                  >
+                    <div className="px-4 py-3 rounded-2xl flex items-center gap-1.5"
+                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--tv-border)' }}>
+                      <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: '#a5b4fc', animationDelay: '0ms' }} />
+                      <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: '#a5b4fc', animationDelay: '150ms' }} />
+                      <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: '#a5b4fc', animationDelay: '300ms' }} />
+                    </div>
+                  </motion.div>
+                )}
                 <div ref={messagesEndRef} />
               </div>
 
@@ -581,9 +615,10 @@ export default function Landing({ onOpenAuth }) {
                 <input
                   value={input}
                   onChange={e => setInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleSend()}
-                  placeholder="Ask about TechVani..."
-                  className="flex-1 bg-white/5 rounded-xl px-4 py-2.5 text-sm outline-none"
+                  onKeyDown={e => e.key === 'Enter' && !isChatLoading && handleSend()}
+                  disabled={isChatLoading}
+                  placeholder={isChatLoading ? 'TechVani is thinking…' : 'Ask about TechVani…'}
+                  className="flex-1 bg-white/5 rounded-xl px-4 py-2.5 text-sm outline-none disabled:opacity-50"
                   style={{
                     border: '1px solid var(--tv-border)',
                     color: 'var(--tv-text-1)',
@@ -593,10 +628,11 @@ export default function Landing({ onOpenAuth }) {
                   onBlur={e => e.target.style.borderColor = 'var(--tv-border)'}
                 />
                 <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
+                  whileHover={isChatLoading ? {} : { scale: 1.1 }}
+                  whileTap={isChatLoading ? {} : { scale: 0.9 }}
                   onClick={handleSend}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                  disabled={isChatLoading}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{ background: 'linear-gradient(135deg, #6366f1, #a855f7)' }}
                   aria-label="Send message"
                 >
@@ -606,6 +642,22 @@ export default function Landing({ onOpenAuth }) {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Tooltip bubble (always visible) */}
+        <motion.div
+          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ delay: 1.5, duration: 0.4, type: 'spring' }}
+          className="px-4 py-2.5 rounded-2xl shadow-xl pointer-events-none"
+          style={{
+            background: 'var(--tv-surface)',
+            border: '1px solid var(--tv-border)',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,102,241,0.1)'
+          }}
+        >
+          <div className="text-sm font-semibold" style={{ color: 'var(--tv-text-1)' }}>Hi! I'm TechVani AI 👋</div>
+          <div className="text-xs" style={{ color: 'var(--tv-text-3)' }}>Ask me anything!</div>
+        </motion.div>
 
         {/* Floating bubble with TechVani logo */}
         <motion.button

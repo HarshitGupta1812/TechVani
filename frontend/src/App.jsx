@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
-import Workspace from './pages/Workspace';
+import ResultView from './pages/ResultView';
 import AuthModal from './components/AuthModal';
 import PreProcessModal from './components/PreProcessModal';
 import './App.css';
@@ -39,7 +39,12 @@ export default function App() {
   const handleStartProcessing = (config) => {
     setProcessConfig(config);
     setIsPreProcessOpen(false);
-    setCurrentView('workspace');
+    setCurrentView('result');
+  };
+
+  const handleBackToDashboard = () => {
+    setProcessConfig(null);
+    setCurrentView('dashboard');
   };
 
   return (
@@ -57,10 +62,11 @@ export default function App() {
         />
       )}
 
-      {currentView === 'workspace' && processConfig && (
-        <Workspace 
+      {currentView === 'result' && processConfig && (
+        <ResultView 
           config={processConfig} 
           fileType={selectedFileType} 
+          onBack={handleBackToDashboard}
           onLogout={handleLogout} 
         />
       )}

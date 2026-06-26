@@ -1,87 +1,72 @@
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { HumanMessage, SystemMessage } from '@langchain/core/messages';
+import { HumanMessage, SystemMessage, AIMessage } from '@langchain/core/messages';
 
-const model = new ChatGoogleGenerativeAI({
-  apiKey: process.env.GOOGLE_API_KEY,
-  model: 'gemini-pro',
-  temperature: 0.3,
-});
+let _model = null;
+function getModel() {
+  if (!_model) {
+    _model = new ChatGoogleGenerativeAI({
+      apiKey: process.env.GOOGLE_API_KEY,
+      model: 'gemini-2.5-flash',
+      temperature: 0.4,
+    });
+  }
+  return _model;
+}
 
-const techVaniSystemPrompt = `You are TechVani AI, an intelligent assistant built into an educational platform designed to localize learning for Indian students. 
-Your primary role is to help users understand how to use TechVani, explain its features (like equation guarding, diagram translation, and smart glossaries), 
-and guide them through their localized learning journey. Keep responses concise, helpful, and strictly relevant to the TechVani application and general study tips.`;
+const TUTOR_SYSTEM_PROMPT = `You are TechVani AI — a friendly assistant that helps users understand the TechVani platform.
 
-export const handleGeneralChat = async (userMessage) => {
-  const messages = [
-    new SystemMessage(techVaniSystemPrompt),
-    new HumanMessage(userMessage)
-  ];
-  const response = await model.invoke(messages);
+TechVani has exactly TWO features:
+
+1. YouTube Section: Users paste a YouTube link. TechVani transcribes the audio using Whisper AI, summarizes the content using Gemini AI, and translates the summary into any of 22 Indian languages. Users can receive the output as either an Audio Summary (neural text-to-speech) or a Text Summary.
+
+2. Document Section: Users upload PDF, DOC, or TXT files. TechVani extracts the text, summarizes it, and translates it into any of 22 Indian languages. Same Audio/Text output options.
+
+Supported languages: Hindi, Bengali, Telugu, Tamil, Marathi, Gujarati, Kannada, Malayalam, Odia, Punjabi, Assamese, Maithili, Sanskrit, Urdu, Sindhi, Dogri, Konkani, Manipuri, Bodo, Santali, Kashmiri, Nepali.
+
+Keep responses concise and helpful. If asked about features that don't exist (flashcards, real-time chat in workspace, equation guard, etc.), politely clarify what TechVani actually offers.`;
+
+/**
+ * Multi-turn chatbot powered by Gemini 2.5 Flash.
+ * Accepts the current message + full conversation history for context.
+ */
+export const handleTutorChat = async (userMessage, history = []) => {
+  const messages = [new SystemMessage(TUTOR_SYSTEM_PROMPT)];
+
+  for (const msg of history) {
+    if (msg.from === 'user') {
+      messages.push(new HumanMessage(msg.text));
+    } else if (msg.from === 'bot') {
+      messages.push(new AIMessage(msg.text));
+    }
+  }
+
+  messages.push(new HumanMessage(userMessage));
+
+  const response = await getModel().invoke(messages);
   return response.content.toString();
 };
 
-export const contextualTranslationPipeline = async (rawText, metadata) => {
-  const { subjectDomain, targetLanguage, scriptStyle } = metadata;
+/**
+ * Generates a structured summary of the input text and translates it into the output language.
+ * @param {string} text - The raw text (from transcript or document)
+ * @param {string} subject - The subject domain of the text
+ * @param {string} outputLang - The target language for the summary
+ * @returns {Promise<string>} The translated summary
+ */
+export const summarizeAndTranslate = async (text, subject, outputLang) => {
+  const prompt = `You are an expert academic tutor specializing in ${subject}. 
+I will provide you with a raw transcript or document text.
+Your task is to create a comprehensive, well-structured, and easy-to-understand summary of the content.
+Translate the summary into ${outputLang}.
 
-  // 1. Equation & Layout Guard: Isolate LaTeX/Markdown formulas
-  const equations = [];
-  const equationRegex = /(\$\$[\s\S]*?\$\$|\$[^\$]+\$|\\\[([\s\S]*?)\\\]|\\\(([\s\S]*?)\\\))/g;
-  
-  let guardedText = rawText.replace(equationRegex, (match) => {
-    equations.push(match);
-    return `__TECHVANI_MATH_TOKEN_${equations.length - 1}__`;
-  });
+Format the output clearly using paragraphs. Ensure technical concepts are explained simply. 
+Do not include any English text in the final output unless it's a standard technical term that is better left in English.
 
-  // 2. Smart Glossary Context Injection
-  const glossaryInstruction = scriptStyle === 'Phonetic (Hinglish/Telugu-English)' 
-    ? `Translate technical terms into phonetic hybrids (e.g., 'Velocity' becomes 'Velositi', 'Gravity' becomes 'Grawiti').`
-    : `Translate technical terms into standard ${targetLanguage} nomenclature using the ${scriptStyle} script.`;
+Input Text:
+${text.substring(0, 50000)} // truncate to prevent massive context explosion
+`;
 
-  const translationPrompt = `You are an expert academic translator specializing in the ${subjectDomain} domain.
-Translate the following educational text into ${targetLanguage}.
-Instructions:
-- Apply the ${scriptStyle} script style.
-- ${glossaryInstruction}
-- DO NOT translate, alter, or modify any text that looks like this: __TECHVANI_MATH_TOKEN_X__. Leave them exactly as they are.
-- Maintain the original structural formatting (like line breaks and bullet points).
-
-Text to translate:
- ${guardedText}`;
-
-  const messages = [new HumanMessage(translationPrompt)];
-  const translatedRaw = await model.invoke(messages);
-  let finalText = translatedRaw.content.toString();
-
-  // 3. Restore original equations
-  equations.forEach((eq, index) => {
-    finalText = finalText.replace(`__TECHVANI_MATH_TOKEN_${index}__`, eq);
-  });
-
-  return finalText;
-};
-
-export const processDiagramOcrTranslation = async (ocrBboxes, metadata) => {
-  const { targetLanguage, subjectDomain } = metadata;
-  
-  const bboxPrompt = `You are a precise OCR translation engine for ${subjectDomain} diagrams.
-I will provide an array of text strings extracted from image bounding boxes.
-Translate each string into ${targetLanguage}. 
-Return ONLY a valid JSON array of strings in the exact same order. No markdown, no extra text.
-Data: ${JSON.stringify(ocrBboxes)}`;
-
-  const messages = [new HumanMessage(bboxPrompt)];
-  const response = await model.invoke(messages);
-  
-  try {
-    const cleanedResponse = response.content.toString().replace(/```json\n?|\n?```/g, '').trim();
-    const translatedBboxes = JSON.parse(cleanedResponse);
-    return ocrBboxes.map((original, index) => ({
-      originalText: original,
-      translatedText: translatedBboxes[index] || original,
-      // These coordinates map directly to frontend overlay logic
-      overlayLogic: 'position: absolute; transform: translate(Xpx, Ypx); font-size: calculatedSize;'
-    }));
-  } catch (e) {
-    return ocrBboxes.map(original => ({ originalText: original, translatedText: original }));
-  }
+  const messages = [new HumanMessage(prompt)];
+  const response = await getModel().invoke(messages);
+  return response.content.toString();
 };

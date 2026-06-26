@@ -4,20 +4,12 @@ import jwt from 'jsonwebtoken';
 import { z as zod } from 'zod';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
-import { OAuth2Client } from 'google-auth-library';
 
 import User from '../models/User.js';
 import PendingUser from '../models/PendingUser.js';
 import { sendOtpEmail } from '../services/emailService.js';
 
 const router = express.Router();
-
-// ── Google OAuth2 Client ────────────────────────────────────────────────────
-const googleClient = new OAuth2Client(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_CALLBACK_URL
-);
 
 // ── Rate Limiters ───────────────────────────────────────────────────────────
 
@@ -37,15 +29,6 @@ const verifyOtpLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Too many verification attempts. Please wait before trying again.' },
-});
-
-/** Max 10 Google auth attempts per IP per minute */
-const googleAuthLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: 'Too many Google auth requests. Please slow down.' },
 });
 
 // ── Zod Schemas ─────────────────────────────────────────────────────────────
@@ -115,7 +98,6 @@ const publicUser = (user) => ({
   email: user.email,
   avatar: user.avatar,
   isVerified: user.isVerified,
-  authProvider: user.authProvider,
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -253,7 +235,6 @@ router.post('/verify-otp', verifyOtpLimiter, validateBody(verifyOtpSchema), asyn
       email: pendingUser.email,
       password: pendingUser.hashedPassword,
       isVerified: true,
-      authProvider: 'email',
     });
     await newUser.save();
 
@@ -274,154 +255,6 @@ router.post('/verify-otp', verifyOtpLimiter, validateBody(verifyOtpSchema), asyn
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  GOOGLE OAUTH2 FLOW
-// ══════════════════════════════════════════════════════════════════════════════
-
-/**
- * GET /api/auth/google
- *
- * Generates and redirects to the Google OAuth2 consent screen.
- * Includes a `state` parameter (CSRF token) for callback validation.
- */
-router.get('/google', googleAuthLimiter, (req, res) => {
-  // Generate a cryptographically random CSRF state token
-  const state = crypto.randomBytes(16).toString('hex');
-
-  // Store state in a short-lived signed cookie for validation in /callback
-  res.cookie('oauth_state', state, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 5 * 60 * 1000, // 5 minutes
-    sameSite: 'lax',
-  });
-
-  const authUrl = googleClient.generateAuthUrl({
-    access_type: 'offline',
-    scope: ['openid', 'email', 'profile'],
-    state,
-    prompt: 'select_account', // always show account picker
-  });
-
-  return res.redirect(authUrl);
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * GET /api/auth/google/callback
- *
- * Handles the Google OAuth2 redirect callback.
- *
- * Flow:
- *   1. Validate CSRF state parameter
- *   2. Exchange authorization code for tokens
- *   3. Verify the ID token server-side (google-auth-library)
- *   4. Extract verified { email, name, picture, googleId }
- *   5. findOrCreate User with isVerified: true (OTP bypassed)
- *   6. Issue JWT → redirect to frontend with ?token=JWT
- *
- * Rate limited: 10 requests per IP per minute.
- */
-router.get('/google/callback', googleAuthLimiter, async (req, res) => {
-  const { code, state, error: oauthError } = req.query;
-  const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-
-  // Handle user cancellation or OAuth errors
-  if (oauthError) {
-    console.warn('[/google/callback] OAuth error:', oauthError);
-    return res.redirect(`${clientUrl}/auth?error=google_cancelled`);
-  }
-
-  // 1. Validate CSRF state
-  const storedState = req.cookies?.oauth_state;
-  if (!state || !storedState || state !== storedState) {
-    console.warn('[/google/callback] State mismatch — possible CSRF attempt');
-    return res.redirect(`${clientUrl}/auth?error=state_mismatch`);
-  }
-
-  // Clear the state cookie immediately
-  res.clearCookie('oauth_state');
-
-  if (!code) {
-    return res.redirect(`${clientUrl}/auth?error=no_code`);
-  }
-
-  try {
-    // 2. Exchange authorization code for tokens
-    const { tokens } = await googleClient.getToken(code);
-    googleClient.setCredentials(tokens);
-
-    // 3. Verify the ID token server-side — this is the critical security step.
-    //    We do NOT trust any claims from the frontend; Google's server verifies them.
-    const ticket = await googleClient.verifyIdToken({
-      idToken: tokens.id_token,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
-
-    const payload = ticket.getPayload();
-    if (!payload || !payload.email_verified) {
-      return res.redirect(`${clientUrl}/auth?error=unverified_google_email`);
-    }
-
-    const { sub: googleId, email, name, picture } = payload;
-
-    // 4. Auto-generate a username from the Google display name
-    let baseUsername = name
-      ? name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '').slice(0, 25)
-      : email.split('@')[0].replace(/[^a-z0-9_]/g, '').slice(0, 25);
-
-    // Ensure username uniqueness by appending a short random suffix if needed
-    let username = baseUsername;
-    let userExists = await User.findOne({ username });
-    if (userExists) {
-      username = `${baseUsername}_${crypto.randomBytes(3).toString('hex')}`;
-    }
-
-    // 5. findOrCreate the User — OTP step is intentionally bypassed for Google users
-    let user = await User.findOne({ $or: [{ googleId }, { email: email.toLowerCase() }] });
-
-    if (!user) {
-      // New Google user — create with isVerified: true
-      user = new User({
-        username,
-        email: email.toLowerCase(),
-        password: null,          // Google users have no password
-        isVerified: true,        // Google already verified the email
-        authProvider: 'google',
-        googleId,
-        avatar: picture || null,
-      });
-      await user.save();
-    } else {
-      // Existing user — link Google account if not already linked, update avatar
-      const updates = {};
-      if (!user.googleId) {
-        updates.googleId = googleId;
-        updates.authProvider = 'google';
-      }
-      if (picture && user.avatar !== picture) {
-        updates.avatar = picture;
-      }
-      // Ensure isVerified is true (handles edge case where same email was started via OTP)
-      if (!user.isVerified) {
-        updates.isVerified = true;
-      }
-      if (Object.keys(updates).length > 0) {
-        await User.updateOne({ _id: user._id }, { $set: updates });
-        user = { ...user.toObject(), ...updates };
-      }
-    }
-
-    // 6. Issue JWT and redirect to frontend
-    const token = signToken(user);
-    return res.redirect(`${clientUrl}/auth/callback?token=${token}`);
-  } catch (error) {
-    console.error('[/google/callback] Error:', error);
-    return res.redirect(`${clientUrl}/auth?error=google_auth_failed`);
-  }
-});
-
-// ══════════════════════════════════════════════════════════════════════════════
 //  EXISTING ROUTES — UPDATED
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -429,7 +262,6 @@ router.get('/google/callback', googleAuthLimiter, async (req, res) => {
  * POST /api/auth/login
  *
  * Updated: blocks login for unverified email/password accounts.
- * Google users (who have no password) cannot login via this route.
  */
 router.post('/login', validateBody(loginSchema), async (req, res) => {
   const { email, password } = req.body;
@@ -438,13 +270,6 @@ router.post('/login', validateBody(loginSchema), async (req, res) => {
 
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials.' });
-    }
-
-    // Block Google-only users from password login
-    if (user.authProvider === 'google' && !user.password) {
-      return res.status(400).json({
-        message: 'This account uses Google Sign-In. Please use "Continue with Google" to log in.',
-      });
     }
 
     // Block unverified email/password users from logging in
