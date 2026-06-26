@@ -226,21 +226,35 @@ function TextViewer({ text, title }) {
 }
 
 /* ─── MAIN COMPONENT ─────────────────────────────────────────────────────── */
-export default function ResultView({ config, fileType, onBack, onLogout }) {
-  const [isProcessing, setIsProcessing] = useState(true);
-  const [result, setResult] = useState(null);
+export default function ResultView({ config, fileType, onBack, onLogout, reviewData }) {
+  const [isProcessing, setIsProcessing] = useState(!reviewData); // Skip processing in review mode
+  const [result, setResult] = useState(
+    reviewData ? { type: 'text', text: reviewData.summary } : null
+  );
   const [error, setError] = useState(null);
+  const hasRun = useRef(false); // Guard against React StrictMode double-fire
 
   const isYouTube = fileType === 'youtube';
-  const title = isYouTube ? (config.url || 'YouTube Summary') : (config.file?.name || 'Document Summary');
+  const title = reviewData
+    ? (reviewData.title || 'Past Summary')
+    : isYouTube ? (config.url || 'YouTube Summary') : (config.file?.name || 'Document Summary');
 
-  // Process the input
+  // Process the input (skipped entirely in review mode)
   useEffect(() => {
+    // Review mode — nothing to process
+    if (reviewData) return;
+
+    // Guard against React 18 StrictMode double-fire
+    if (hasRun.current) return;
+    hasRun.current = true;
+
     const process = async () => {
       try {
         setIsProcessing(true);
         setError(null);
         const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+        let summaryText = ''; // capture for history storage
 
         if (isYouTube) {
           const res = await fetch(`${API}/process/youtube`, {
@@ -262,8 +276,10 @@ export default function ResultView({ config, fileType, onBack, onLogout }) {
             const blob = await res.blob();
             const audioUrl = URL.createObjectURL(blob);
             setResult({ type: 'audio', audioUrl });
+            summaryText = '[Audio summary generated]';
           } else {
             const data = await res.json();
+            summaryText = data.summary;
             setResult({ type: 'text', text: data.summary });
           }
         } else {
@@ -286,26 +302,44 @@ export default function ResultView({ config, fileType, onBack, onLogout }) {
             const blob = await res.blob();
             const audioUrl = URL.createObjectURL(blob);
             setResult({ type: 'audio', audioUrl });
+            summaryText = '[Audio summary generated]';
           } else {
             const data = await res.json();
+            summaryText = data.summary;
             setResult({ type: 'text', text: data.summary });
           }
         }
 
-        // Save to history
+        // Save to history with dedup check
         try {
-          const historyItem = {
-            id: Date.now().toString(),
-            type: isYouTube ? 'youtube' : 'document',
-            title: isYouTube ? config.url : config.file?.name,
-            subject: config.subject,
-            outputLang: config.outputLang,
-            outputFormat: config.outputFormat,
-            createdAt: new Date().toISOString(),
-          };
+          const itemType = isYouTube ? 'youtube' : 'document';
+          const itemTitle = isYouTube ? config.url : config.file?.name;
           const stored = JSON.parse(localStorage.getItem('tv_history') || '[]');
-          stored.unshift(historyItem);
-          localStorage.setItem('tv_history', JSON.stringify(stored.slice(0, 50)));
+
+          // Dedup: skip if an identical entry exists within the last 10 seconds
+          const now = Date.now();
+          const isDuplicate = stored.some(existing =>
+            existing.type === itemType &&
+            existing.title === itemTitle &&
+            existing.outputLang === config.outputLang &&
+            existing.outputFormat === config.outputFormat &&
+            (now - new Date(existing.createdAt).getTime()) < 10000
+          );
+
+          if (!isDuplicate) {
+            const historyItem = {
+              id: `${now}_${Math.random().toString(36).slice(2, 8)}`,
+              type: itemType,
+              title: itemTitle,
+              subject: config.subject,
+              outputLang: config.outputLang,
+              outputFormat: config.outputFormat,
+              summary: summaryText, // Store summary for history review
+              createdAt: new Date().toISOString(),
+            };
+            stored.unshift(historyItem);
+            localStorage.setItem('tv_history', JSON.stringify(stored.slice(0, 50)));
+          }
         } catch { /* ignore */ }
       } catch (err) {
         setError(err.message);

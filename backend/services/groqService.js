@@ -10,6 +10,8 @@ function getGroqClient() {
   return _groq;
 }
 
+const MAX_AUDIO_SIZE_MB = 25; // Groq Whisper file size limit
+
 /**
  * Transcribes audio using Groq's whisper-large-v3 model.
  * @param {string} audioFilePath - The absolute path to the audio file
@@ -17,6 +19,17 @@ function getGroqClient() {
  */
 export async function transcribeAudio(audioFilePath) {
   try {
+    // Validate file exists and check size
+    const stats = fs.statSync(audioFilePath);
+    const sizeMB = stats.size / (1024 * 1024);
+    console.log(`[Groq Whisper] Audio file size: ${sizeMB.toFixed(2)} MB`);
+
+    if (sizeMB > MAX_AUDIO_SIZE_MB) {
+      throw new Error(
+        `Audio file is ${sizeMB.toFixed(1)}MB, which exceeds Groq's ${MAX_AUDIO_SIZE_MB}MB limit. Try a shorter video.`
+      );
+    }
+
     const groq = getGroqClient();
     const transcription = await groq.audio.transcriptions.create({
       file: fs.createReadStream(audioFilePath),
@@ -27,6 +40,7 @@ export async function transcribeAudio(audioFilePath) {
     return transcription.text;
   } catch (error) {
     console.error('[Groq Whisper Error]', error);
-    throw new Error('Failed to transcribe audio. Please verify your Groq API key.');
+    throw new Error(error.message || 'Failed to transcribe audio. Please verify your Groq API key.');
   }
 }
+

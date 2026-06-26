@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, ArrowRight, Shield, Globe, Zap, BookOpen, ChevronDown, Video, FileText, Volume2 } from 'lucide-react';
-import { FaGithub, FaLinkedin, FaTwitter } from 'react-icons/fa';
+import { FaGithub, FaInstagram } from 'react-icons/fa';
 import TechVaniLogo from '../components/TechVaniLogo';
 
 /* ─── HERO CYCLING PHRASES ──────────────────────────────────────────────── */
@@ -487,18 +487,19 @@ export default function Landing({ onOpenAuth }) {
           <p className="text-xs text-center" style={{ color: 'var(--tv-text-3)' }}>
             {`© ${new Date().getFullYear()} TechVani. Making knowledge accessible in every mother tongue.`}
           </p>
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-5 mr-4 sm:mr-24 relative z-10">
             {[
-              { Icon: FaGithub, href: '#' },
-              { Icon: FaTwitter, href: '#' },
-              { Icon: FaLinkedin, href: '#' },
-            ].map(({ Icon, href }, i) => (
+              { Icon: FaGithub, href: 'https://github.com/HarshitGupta1812/TechVani' },
+              { Icon: FaInstagram, href: 'https://www.instagram.com/techvani2.0/' },
+            ].map(({ Icon, href }) => (
               <motion.a
-                key={i}
+                key={href}
                 href={href}
+                target="_blank"
+                rel="noopener noreferrer"
                 whileHover={{ y: -3, scale: 1.15 }}
                 whileTap={{ scale: 0.9 }}
-                style={{ color: 'var(--tv-text-3)' }}
+                style={{ color: 'var(--tv-text-3)', display: 'inline-block' }}
                 onMouseEnter={e => e.currentTarget.style.color = 'var(--tv-text-1)'}
                 onMouseLeave={e => e.currentTarget.style.color = 'var(--tv-text-3)'}
               >

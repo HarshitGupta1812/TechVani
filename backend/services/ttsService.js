@@ -31,6 +31,7 @@ const edgeVoices = {
 
 /**
  * Uses Python edge-tts to generate audio from text.
+ * Writes text to a temp file to avoid Windows CLI argument length limits.
  * Requires edge-tts installed globally or in Python path (`pip install edge-tts`).
  *
  * @param {string} text - Text to synthesize
@@ -43,12 +44,23 @@ export async function generateSpeech(text, language) {
     const tempDir = path.join(process.cwd(), 'temp');
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
     
-    const outputPath = path.join(tempDir, `tts_${Date.now()}.mp3`);
+    const timestamp = Date.now();
+    const outputPath = path.join(tempDir, `tts_${timestamp}.mp3`);
+    const textFilePath = path.join(tempDir, `tts_input_${timestamp}.txt`);
+
+    // Write text to a temp file to avoid Windows CLI argument length limits (8191 chars)
+    try {
+      fs.writeFileSync(textFilePath, text, 'utf8');
+    } catch (writeErr) {
+      return reject(new Error(`Failed to write TTS input file: ${writeErr.message}`));
+    }
     
-    // We spawn the edge-tts python package. Make sure it's installed on the system!
+    console.log(`[TTS] Generating speech with voice: ${voice}, text length: ${text.length} chars`);
+
+    // Use --file instead of --text to bypass command-line length limits
     const edge = spawn('edge-tts', [
       '--voice', voice,
-      '--text', text,
+      '--file', textFilePath,
       '--write-media', outputPath
     ]);
 
@@ -59,18 +71,36 @@ export async function generateSpeech(text, language) {
     });
 
     edge.on('close', (code) => {
+      // Always clean up the temp text file
+      fs.unlink(textFilePath, () => {});
+
       if (code !== 0) {
         console.error('[edge-tts Error]', errorOutput);
-        reject(new Error(`TTS generation failed: ${errorOutput || 'Unknown error'}`));
-      } else {
+        reject(new Error(`TTS generation failed (exit code ${code}): ${errorOutput || 'Unknown error'}`));
+        return;
+      }
+
+      // Validate the output file exists and has content
+      try {
+        const stats = fs.statSync(outputPath);
+        if (stats.size === 0) {
+          fs.unlink(outputPath, () => {});
+          reject(new Error('TTS generated an empty audio file. The text may not be supported by the selected voice.'));
+          return;
+        }
+        console.log(`[TTS] Audio generated: ${(stats.size / 1024).toFixed(0)} KB`);
         resolve(outputPath);
+      } catch (e) {
+        reject(new Error('TTS audio file was not created. Check edge-tts installation.'));
       }
     });
     
     // If edge-tts is not installed, it will emit an error
     edge.on('error', (err) => {
+      fs.unlink(textFilePath, () => {});
       console.error('[edge-tts Error] Command failed to spawn. Is edge-tts installed? (`pip install edge-tts`)', err);
-      reject(new Error('TTS Engine not available. Please install edge-tts.'));
+      reject(new Error('TTS Engine not available. Please install edge-tts: pip install edge-tts'));
     });
   });
 }
+

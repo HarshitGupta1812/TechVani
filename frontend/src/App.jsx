@@ -18,6 +18,7 @@ export default function App() {
   const [isPreProcessOpen, setIsPreProcessOpen] = useState(false);
   const [selectedFileType, setSelectedFileType] = useState(null);
   const [processConfig, setProcessConfig] = useState(null);
+  const [reviewData, setReviewData] = useState(null); // For history review mode
 
   // Handlers for Auth Flow
   const handleOpenAuth = (mode) => {
@@ -44,7 +45,23 @@ export default function App() {
 
   const handleBackToDashboard = () => {
     setProcessConfig(null);
+    setReviewData(null);
     setCurrentView('dashboard');
+  };
+
+  // Handler for reviewing a past history item
+  const handleReviewHistory = (historyItem) => {
+    setReviewData(historyItem);
+    setSelectedFileType(historyItem.type);
+    // Build a minimal config for ResultView header display
+    setProcessConfig({
+      url: historyItem.title,
+      subject: historyItem.subject || '',
+      sourceLang: '',
+      outputLang: historyItem.outputLang || '',
+      outputFormat: historyItem.outputFormat || 'text',
+    });
+    setCurrentView('result');
   };
 
   return (
@@ -58,7 +75,8 @@ export default function App() {
         <Dashboard 
           user={user} 
           onLogout={handleLogout} 
-          onOpenPreProcess={handleOpenPreProcess} 
+          onOpenPreProcess={handleOpenPreProcess}
+          onReviewHistory={handleReviewHistory}
         />
       )}
 
@@ -67,7 +85,8 @@ export default function App() {
           config={processConfig} 
           fileType={selectedFileType} 
           onBack={handleBackToDashboard}
-          onLogout={handleLogout} 
+          onLogout={handleLogout}
+          reviewData={reviewData}
         />
       )}
 

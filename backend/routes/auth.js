@@ -294,4 +294,133 @@ router.post('/login', validateBody(loginSchema), async (req, res) => {
   }
 });
 
+// ══════════════════════════════════════════════════════════════════════════════
+//  PASSWORD RESET FLOW
+// ══════════════════════════════════════════════════════════════════════════════
+
+const forgotPasswordSchema = zod.object({
+  email: zod.string().email('Invalid email format'),
+});
+
+const verifyResetOtpSchema = zod.object({
+  email: zod.string().email('Invalid email format'),
+  otp: zod.string().length(6, 'OTP must be exactly 6 digits').regex(/^\d{6}$/, 'OTP must contain only digits'),
+});
+
+const resetPasswordSchema = zod.object({
+  email: zod.string().email('Invalid email format'),
+  otp: zod.string().length(6, 'OTP must be exactly 6 digits').regex(/^\d{6}$/, 'OTP must contain only digits'),
+  newPassword: zod.string().min(6, 'Password must be at least 6 characters'),
+});
+
+/**
+ * POST /api/auth/forgot-password
+ * Step 1: Request OTP for password reset
+ */
+router.post('/forgot-password', sendOtpLimiter, validateBody(forgotPasswordSchema), async (req, res) => {
+  const { email } = req.body;
+  try {
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      // Don't leak whether user exists, but for UX we can return 404 or just succeed silently
+      // The instructions usually prefer a clear message for simple apps
+      return res.status(404).json({ message: 'No account found with this email address.' });
+    }
+
+    const otp = generateOtp();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const hashedOtp = await bcrypt.hash(otp, 10);
+
+    user.resetOtp = hashedOtp;
+    user.resetOtpExpiry = otpExpiry;
+    user.resetAttempts = 0;
+    await user.save();
+
+    await sendOtpEmail(email, otp);
+
+    return res.status(200).json({ message: 'OTP sent successfully. Please check your email.', email });
+  } catch (error) {
+    console.error('[/forgot-password] Error:', error);
+    return res.status(500).json({ message: 'Failed to send reset OTP. Please try again.' });
+  }
+});
+
+/**
+ * POST /api/auth/verify-reset-otp
+ * Step 2: Validate OTP before allowing password change
+ */
+router.post('/verify-reset-otp', verifyOtpLimiter, validateBody(verifyResetOtpSchema), async (req, res) => {
+  const { email, otp } = req.body;
+  try {
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user || !user.resetOtp) {
+      return res.status(400).json({ message: 'No password reset request found. Please try again.' });
+    }
+
+    if (user.resetAttempts >= 5) {
+      user.resetOtp = null;
+      user.resetOtpExpiry = null;
+      await user.save();
+      return res.status(429).json({ message: 'Too many failed attempts. Please request a new OTP.' });
+    }
+
+    if (new Date() > user.resetOtpExpiry) {
+      user.resetOtp = null;
+      user.resetOtpExpiry = null;
+      await user.save();
+      return res.status(400).json({ message: 'OTP has expired. Please request a new one.', expired: true });
+    }
+
+    const isOtpValid = await bcrypt.compare(otp, user.resetOtp);
+    if (!isOtpValid) {
+      user.resetAttempts += 1;
+      await user.save();
+      const remaining = 5 - user.resetAttempts;
+      return res.status(400).json({ 
+        message: `Incorrect OTP. ${remaining > 0 ? `${remaining} attempt(s) remaining.` : 'Your session is locked.'}`
+      });
+    }
+
+    return res.status(200).json({ message: 'OTP verified successfully.' });
+  } catch (error) {
+    console.error('[/verify-reset-otp] Error:', error);
+    return res.status(500).json({ message: 'Verification failed. Please try again.' });
+  }
+});
+
+/**
+ * POST /api/auth/reset-password
+ * Step 3: Set new password
+ */
+router.post('/reset-password', validateBody(resetPasswordSchema), async (req, res) => {
+  const { email, otp, newPassword } = req.body;
+  try {
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user || !user.resetOtp) {
+      return res.status(400).json({ message: 'No password reset request found. Please try again.' });
+    }
+
+    if (new Date() > user.resetOtpExpiry) {
+      return res.status(400).json({ message: 'OTP has expired. Please request a new one.', expired: true });
+    }
+
+    const isOtpValid = await bcrypt.compare(otp, user.resetOtp);
+    if (!isOtpValid) {
+      return res.status(400).json({ message: 'Invalid OTP. Please try again.' });
+    }
+
+    // Update password and clear reset fields
+    user.password = await bcrypt.hash(newPassword, 12);
+    user.resetOtp = null;
+    user.resetOtpExpiry = null;
+    user.resetAttempts = 0;
+    await user.save();
+
+    return res.status(200).json({ message: 'Password has been reset successfully. You can now log in.' });
+  } catch (error) {
+    console.error('[/reset-password] Error:', error);
+    return res.status(500).json({ message: 'Failed to reset password. Please try again.' });
+  }
+});
+
 export default router;

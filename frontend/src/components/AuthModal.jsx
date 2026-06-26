@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Mail, Lock, User, Eye, EyeOff, ArrowRight, Shield, Globe, Zap, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { X, Mail, Lock, User, Eye, EyeOff, ArrowRight, Shield, Globe, Zap, ArrowLeft, CheckCircle2, Video, FileText, Volume2 } from 'lucide-react';
 import TechVaniLogo from './TechVaniLogo';
-import { sendOtp, verifyOtp, login, persistSession } from '../authApi';
+import { sendOtp, verifyOtp, login, persistSession, forgotPassword, verifyResetOtp, resetPassword } from '../authApi';
 
 /* ─── PASSWORD STRENGTH ─────────────────────────────────────────────────── */
 function getPasswordStrength(pw) {
@@ -71,9 +71,10 @@ function FormInput({ icon: Icon, type, placeholder, value, onChange, error }) {
 
 /* ─── BRAND PANEL ───────────────────────────────────────────────────────── */
 const brandFeatures = [
-  { icon: Shield, text: 'Equation Guard™ — Math is always preserved' },
-  { icon: Globe,  text: '8 Indian languages with native script support' },
-  { icon: Zap,    text: 'Real-time AI chat in your language' },
+  { icon: Video,     text: 'YouTube Intelligence — AI Summaries' },
+  { icon: FileText,  text: 'Document Analysis — Smart PDFs & DOCs' },
+  { icon: Globe,     text: '22 Indian Languages with Native Script' },
+  { icon: Volume2,   text: 'Audio & Text output in every language' },
 ];
 
 /* ─── MAIN COMPONENT ────────────────────────────────────────────────────── */
@@ -94,7 +95,7 @@ export default function AuthModal({ isOpen, onClose, initialMode, onSuccess }) {
 
   // OTP Timer countdown
   useEffect(() => {
-    if (mode === 'otp' && timeLeft > 0) {
+    if ((mode === 'otp' || mode === 'forgot-otp') && timeLeft > 0) {
       const timer = setInterval(() => setTimeLeft(t => t - 1), 1000);
       return () => clearInterval(timer);
     }
@@ -119,8 +120,10 @@ export default function AuthModal({ isOpen, onClose, initialMode, onSuccess }) {
       errs.username = 'Username must be at least 3 characters.';
     if (!/\S+@\S+\.\S+/.test(formData.email))
       errs.email = 'Please enter a valid email address.';
-    if (formData.password.length < 6)
+    if ((mode === 'signup' || mode === 'reset') && formData.password.length < 6)
       errs.password = 'Password must be at least 6 characters.';
+    if (mode === 'login' && !formData.password)
+      errs.password = 'Password is required.';
     return errs;
   };
 
@@ -149,6 +152,24 @@ export default function AuthModal({ isOpen, onClose, initialMode, onSuccess }) {
         setTimeLeft(300);
         setOtp(['', '', '', '', '', '']);
       }
+    } else if (mode === 'forgot') {
+      const { data, error } = await forgotPassword(formData.email);
+      if (error) {
+        setGlobalError(error);
+      } else {
+        setMode('forgot-otp');
+        setTimeLeft(300);
+        setOtp(['', '', '', '', '', '']);
+      }
+    } else if (mode === 'reset') {
+      const { data, error } = await resetPassword(formData.email, otp.join(''), formData.password);
+      if (error) {
+        setGlobalError(error);
+      } else {
+        setMode('login');
+        setFormData(prev => ({ ...prev, password: '' }));
+        setSuccessMessage('Password reset successfully! Please sign in with your new password.');
+      }
     }
     
     setLoading(false);
@@ -165,14 +186,23 @@ export default function AuthModal({ isOpen, onClose, initialMode, onSuccess }) {
     }
     
     setLoading(true);
-    const { data, error } = await verifyOtp(formData.email, otpString);
-    if (error) {
-      setGlobalError(error);
+    if (mode === 'forgot-otp') {
+      const { data, error } = await verifyResetOtp(formData.email, otpString);
+      if (error) {
+        setGlobalError(error);
+      } else {
+        setMode('reset');
+        setFormData(prev => ({ ...prev, password: '' }));
+      }
     } else {
-      // Do not log the user in automatically. Force them to sign in.
-      setFormData(prev => ({ ...prev, password: '' })); // clear password for security
-      setMode('login');
-      setSuccessMessage('Account verified successfully! Please sign in to continue.');
+      const { data, error } = await verifyOtp(formData.email, otpString);
+      if (error) {
+        setGlobalError(error);
+      } else {
+        setFormData(prev => ({ ...prev, password: '' }));
+        setMode('login');
+        setSuccessMessage('Account verified successfully! Please sign in to continue.');
+      }
     }
     setLoading(false);
   };
@@ -181,12 +211,22 @@ export default function AuthModal({ isOpen, onClose, initialMode, onSuccess }) {
     if (timeLeft > 0) return;
     setGlobalError('');
     setLoading(true);
-    const { data, error } = await sendOtp(formData.username, formData.email, formData.password);
-    if (error) {
-      setGlobalError(error);
+    if (mode === 'forgot-otp') {
+      const { data, error } = await forgotPassword(formData.email);
+      if (error) {
+        setGlobalError(error);
+      } else {
+        setTimeLeft(300);
+        setOtp(['', '', '', '', '', '']);
+      }
     } else {
-      setTimeLeft(300);
-      setOtp(['', '', '', '', '', '']);
+      const { data, error } = await sendOtp(formData.username, formData.email, formData.password);
+      if (error) {
+        setGlobalError(error);
+      } else {
+        setTimeLeft(300);
+        setOtp(['', '', '', '', '', '']);
+      }
     }
     setLoading(false);
   };
@@ -287,12 +327,6 @@ export default function AuthModal({ isOpen, onClose, initialMode, onSuccess }) {
                 ))}
               </div>
 
-              <div className="relative z-10">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-xs" style={{ color: 'var(--tv-text-3)' }}>Free during Beta · No credit card</span>
-                </div>
-              </div>
             </div>
 
             {/* ── RIGHT FORM PANEL ──────────────────────────────── */}
@@ -309,14 +343,14 @@ export default function AuthModal({ isOpen, onClose, initialMode, onSuccess }) {
               </button>
 
               {/* ── OTP VIEW ── */}
-              {mode === 'otp' ? (
+              {mode === 'otp' || mode === 'forgot-otp' ? (
                 <motion.div
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   className="flex-1 flex flex-col"
                 >
                   <button 
-                    onClick={() => setMode('signup')}
+                    onClick={() => setMode(mode === 'forgot-otp' ? 'forgot' : 'signup')}
                     className="flex items-center gap-2 text-sm mb-6 w-fit transition-colors"
                     style={{ color: 'var(--tv-text-3)' }}
                     onMouseEnter={e => e.currentTarget.style.color = 'var(--tv-text-2)'}
@@ -425,12 +459,19 @@ export default function AuthModal({ isOpen, onClose, initialMode, onSuccess }) {
                       className="mb-8 mt-2"
                     >
                       <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--tv-text-1)' }}>
-                        {mode === 'login' ? 'Welcome back 👋' : 'Create your account'}
+                        {mode === 'login' ? 'Welcome back 👋' : 
+                         mode === 'signup' ? 'Create your account' : 
+                         mode === 'forgot' ? 'Reset password' :
+                         'Set new password'}
                       </h2>
-                      <p className="text-sm mt-1.5" style={{ color: 'var(--tv-text-3)' }}>
+                      <p className="text-sm mt-3 mb-2" style={{ color: 'var(--tv-text-3)' }}>
                         {mode === 'login'
                           ? 'Sign in to continue to your learning workspace.'
-                          : 'Join TechVani and start learning in your mother tongue.'}
+                          : mode === 'signup'
+                          ? 'Join TechVani and start learning in your mother tongue.'
+                          : mode === 'forgot'
+                          ? 'Enter your email address to receive an OTP.'
+                          : 'Please enter a strong new password.'}
                       </p>
                     </motion.div>
                   </AnimatePresence>
@@ -458,27 +499,51 @@ export default function AuthModal({ isOpen, onClose, initialMode, onSuccess }) {
                       )}
                     </AnimatePresence>
 
-                    <FormInput
-                      icon={Mail}
-                      type="email"
-                      placeholder="Email address"
-                      value={formData.email}
-                      onChange={update('email')}
-                      error={errors.email}
-                    />
+                    <AnimatePresence mode="popLayout">
+                      {(mode === 'login' || mode === 'signup' || mode === 'forgot') && (
+                        <motion.div
+                          key="email-field"
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                          className="overflow-hidden"
+                        >
+                          <FormInput
+                            icon={Mail}
+                            type="email"
+                            placeholder="Email address"
+                            value={formData.email}
+                            onChange={update('email')}
+                            error={errors.email}
+                          />
+                        </motion.div>
+                      )}
 
-                    <FormInput
-                      icon={Lock}
-                      type="password"
-                      placeholder="Password"
-                      value={formData.password}
-                      onChange={update('password')}
-                      error={errors.password}
-                    />
+                      {(mode === 'login' || mode === 'signup' || mode === 'reset') && (
+                        <motion.div
+                          key="password-field"
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                          className="overflow-hidden"
+                        >
+                          <FormInput
+                            icon={Lock}
+                            type="password"
+                            placeholder={mode === 'reset' ? "New Password" : "Password"}
+                            value={formData.password}
+                            onChange={update('password')}
+                            error={errors.password}
+                          />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
-                    {/* Password strength bar — only on signup */}
+                    {/* Password strength bar — only on signup / reset */}
                     <AnimatePresence>
-                      {mode === 'signup' && formData.password && (
+                      {(mode === 'signup' || mode === 'reset') && formData.password && (
                         <motion.div
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: 'auto' }}
@@ -515,7 +580,7 @@ export default function AuthModal({ isOpen, onClose, initialMode, onSuccess }) {
                     {/* Forgot password */}
                     {mode === 'login' && (
                       <div className="text-right mt-1">
-                        <button type="button" className="text-xs transition-colors duration-200"
+                        <button type="button" onClick={() => { setMode('forgot'); setGlobalError(''); setErrors({}); }} className="text-xs transition-colors duration-200"
                           style={{ color: 'var(--tv-text-3)' }}
                           onMouseEnter={e => e.currentTarget.style.color = 'var(--tv-text-1)'}
                           onMouseLeave={e => e.currentTarget.style.color = 'var(--tv-text-3)'}>
@@ -540,26 +605,44 @@ export default function AuthModal({ isOpen, onClose, initialMode, onSuccess }) {
                         </svg>
                       ) : (
                         <>
-                          {mode === 'login' ? 'Sign In' : 'Create Account'}
+                          {mode === 'login' ? 'Sign In' : 
+                           mode === 'signup' ? 'Create Account' : 
+                           mode === 'forgot' ? 'Send OTP' : 'Reset Password'}
                           <ArrowRight size={16} />
                         </>
                       )}
                     </motion.button>
                   </form>
 
-                  {/* Toggle */}
-                  <p className="text-center text-sm mt-6" style={{ color: 'var(--tv-text-3)' }}>
-                    {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
-                    <button
-                      onClick={toggleMode}
-                      className="font-semibold transition-colors duration-200"
-                      style={{ color: 'var(--tv-accent)' }}
-                      onMouseEnter={e => e.currentTarget.style.color = 'var(--tv-accent-2)'}
-                      onMouseLeave={e => e.currentTarget.style.color = 'var(--tv-accent)'}
-                    >
-                      {mode === 'login' ? 'Sign Up' : 'Sign In'}
-                    </button>
-                  </p>
+                  {/* Toggle / Back */}
+                  <div className="text-center text-sm mt-6" style={{ color: 'var(--tv-text-3)' }}>
+                    {mode === 'login' || mode === 'signup' ? (
+                      <>
+                        {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
+                        <button
+                          type="button"
+                          onClick={toggleMode}
+                          className="font-semibold transition-colors duration-200"
+                          style={{ color: 'var(--tv-accent)' }}
+                          onMouseEnter={e => e.currentTarget.style.color = 'var(--tv-accent-2)'}
+                          onMouseLeave={e => e.currentTarget.style.color = 'var(--tv-accent)'}
+                        >
+                          {mode === 'login' ? 'Sign Up' : 'Sign In'}
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => { setMode('login'); setGlobalError(''); setErrors({}); setSuccessMessage(''); }}
+                        className="font-semibold transition-colors duration-200 flex items-center justify-center gap-1 mx-auto"
+                        style={{ color: 'var(--tv-text-3)' }}
+                        onMouseEnter={e => e.currentTarget.style.color = 'var(--tv-text-1)'}
+                        onMouseLeave={e => e.currentTarget.style.color = 'var(--tv-text-3)'}
+                      >
+                        <ArrowLeft size={14} /> Back to Sign In
+                      </button>
+                    )}
+                  </div>
                 </motion.div>
               )}
             </div>

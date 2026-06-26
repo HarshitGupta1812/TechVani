@@ -63,7 +63,7 @@ Format the output clearly using paragraphs. Ensure technical concepts are explai
 Do not include any English text in the final output unless it's a standard technical term that is better left in English.
 
 Input Text:
-${text.substring(0, 50000)} // truncate to prevent massive context explosion
+${text.substring(0, 50000)}
 `;
 
   const messages = [new HumanMessage(prompt)];

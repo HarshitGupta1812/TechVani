@@ -83,6 +83,73 @@ export async function login(email, password) {
 }
 
 /**
+ * POST /api/auth/forgot-password
+ * Step 1 of password reset: request OTP to email.
+ */
+export async function forgotPassword(email) {
+  try {
+    const res = await fetch(`${BASE_URL}/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      return { data: null, error: json.message || 'Failed to send OTP.' };
+    }
+    return { data: json, error: null };
+  } catch {
+    return { data: null, error: 'Network error. Please check your connection.' };
+  }
+}
+
+/**
+ * POST /api/auth/verify-reset-otp
+ * Step 2 of password reset: verify the OTP.
+ */
+export async function verifyResetOtp(email, otp) {
+  try {
+    const res = await fetch(`${BASE_URL}/auth/verify-reset-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, otp }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      return {
+        data: null,
+        error: json.message || 'OTP verification failed.',
+        expired: json.expired || false,
+      };
+    }
+    return { data: json, error: null };
+  } catch {
+    return { data: null, error: 'Network error. Please check your connection.' };
+  }
+}
+
+/**
+ * POST /api/auth/reset-password
+ * Step 3 of password reset: submit OTP and new password.
+ */
+export async function resetPassword(email, otp, newPassword) {
+  try {
+    const res = await fetch(`${BASE_URL}/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, otp, newPassword }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      return { data: null, error: json.message || 'Password reset failed.' };
+    }
+    return { data: json, error: null };
+  } catch {
+    return { data: null, error: 'Network error. Please check your connection.' };
+  }
+}
+
+/**
  * Persists the JWT token and user object to localStorage.
  */
 export function persistSession(token, user) {

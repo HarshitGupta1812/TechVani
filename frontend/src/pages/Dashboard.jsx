@@ -48,7 +48,7 @@ const channels = [
 ];
 
 /* ─── COMPONENT ──────────────────────────────────────────────────────────── */
-export default function Dashboard({ user, onLogout, onOpenPreProcess }) {
+export default function Dashboard({ user, onLogout, onOpenPreProcess, onReviewHistory }) {
   const initials = (user?.username || 'S').slice(0, 2).toUpperCase();
   const [history, setHistory] = useState([]);
 
@@ -288,10 +288,12 @@ export default function Dashboard({ user, onLogout, onOpenPreProcess }) {
                     animate="animate"
                     exit="exit"
                     layout
+                    onClick={() => onReviewHistory && onReviewHistory(item)}
                     className="group flex items-center justify-between p-5 rounded-2xl transition-all duration-200"
                     style={{
                       background: 'var(--tv-surface)',
                       border: '1px solid var(--tv-border)',
+                      cursor: 'pointer',
                     }}
                     onMouseEnter={e => {
                       e.currentTarget.style.borderColor = 'var(--tv-border-hover)';
